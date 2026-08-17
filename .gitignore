@@ -47,6 +47,8 @@ cmake-build-*/
 
 # IDE
 .idea/
+.vs/
+out/
 
 # CMake generated files
 CMakeFiles/
