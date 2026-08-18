@@ -11,6 +11,7 @@ struct PriceLevel {
         order->prev = tail;
         order->next = nullptr;
 
+        // if list non-empty...
         if (tail != nullptr) {
             tail->next = order;
         }
@@ -22,6 +23,8 @@ struct PriceLevel {
     }
 
     void unlink(Order* order) {
+
+		// if order isnt head...
         if (order->prev != nullptr) {
             order->prev->next = order->next;
         }
