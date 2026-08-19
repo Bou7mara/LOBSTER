@@ -3,14 +3,16 @@
 #include "core/Order.h"
 #include "core/OrderBook.h"
 
+using namespace lobster;
+
 int main() {
     std::cout << "=== LOBSTER Limit Order Book - OrderBook Demo ===\n\n";
 
     OrderBook book;
 
     std::cout << "1. Submitting Bid Orders...\n";
-    Order b1; b1.id = 101; b1.owner = 1; b1.side = Side::Bid; b1.price = 15000; b1.quantity = 50; b1.submittedAt = 1000;
-    Order b2; b2.id = 102; b2.owner = 2; b2.side = Side::Bid; b2.price = 15050; b2.quantity = 30; b2.submittedAt = 1001;
+    Order b1{101, 1, Side::Bid, 15000, 50, 1000};
+    Order b2{102, 2, Side::Bid, 15050, 30, 1001};
 
     book.submit(std::move(b1));
     book.submit(std::move(b2));
@@ -20,8 +22,8 @@ int main() {
     }
 
     std::cout << "\n2. Submitting Ask Orders...\n";
-    Order a1; a1.id = 201; a1.owner = 3; a1.side = Side::Ask; a1.price = 15100; a1.quantity = 25; a1.submittedAt = 1002;
-    Order a2; a2.id = 202; a2.owner = 4; a2.side = Side::Ask; a2.price = 15080; a2.quantity = 40; a2.submittedAt = 1003;
+    Order a1{201, 3, Side::Ask, 15100, 25, 1002};
+    Order a2{202, 4, Side::Ask, 15080, 40, 1003};
 
     book.submit(std::move(a1));
     book.submit(std::move(a2));

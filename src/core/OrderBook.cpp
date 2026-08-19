@@ -1,82 +1,91 @@
 #include "OrderBook.h"
 #include <algorithm>
 
-void OrderBook::match(Order& incoming, std::vector<Fill>& fills) {
+namespace lobster {
+
+bool OrderBook::pricesCross(const Order& incoming, Price levelPrice) const {
     if (incoming.side == Side::Bid) {
-        while (!asks_.empty() && asks_.begin()->first <= incoming.price && incoming.quantity > 0) {
-            auto askIt = asks_.begin();
-            PriceLevel& level = askIt->second;
-            Order* resting = level.head;
-
-            while (resting != nullptr && incoming.quantity > 0) {
-                Order* nextResting = resting->next;
-                Quantity fillQty = std::min(incoming.quantity, resting->quantity);
-
-                incoming.quantity -= fillQty;
-                resting->quantity -= fillQty;
-
-                fills.push_back(Fill{
-                    .incomingId = incoming.id,
-                    .restingId = resting->id,
-                    .price = resting->price,
-                    .quantity = fillQty
-                });
-
-                if (resting->quantity == 0) {
-                    level.unlink(resting);
-                    orderLookup_.erase(resting->id);
-                }
-
-                resting = nextResting;
-            }
-
-            if (level.head == nullptr) {
-                asks_.erase(askIt);
-            }
-        }
-    }
-    else {
-        while (!bids_.empty() && bids_.begin()->first >= incoming.price && incoming.quantity > 0) {
-            auto bidIt = bids_.begin();
-            PriceLevel& level = bidIt->second;
-            Order* resting = level.head;
-
-            while (resting != nullptr && incoming.quantity > 0) {
-                Order* nextResting = resting->next;
-                Quantity fillQty = std::min(incoming.quantity, resting->quantity);
-
-                incoming.quantity -= fillQty;
-                resting->quantity -= fillQty;
-
-                fills.push_back(Fill{
-                    .incomingId = incoming.id,
-                    .restingId = resting->id,
-                    .price = resting->price,
-                    .quantity = fillQty
-                });
-
-                if (resting->quantity == 0) {
-                    level.unlink(resting);
-                    orderLookup_.erase(resting->id);
-                }
-
-                resting = nextResting;
-            }
-
-            if (level.head == nullptr) {
-                bids_.erase(bidIt);
-            }
-        }
+        return incoming.price >= levelPrice;
+    } else {
+        return incoming.price <= levelPrice;
     }
 }
 
-std::vector<Fill> OrderBook::submit(Order order) {
+std::vector<Fill> OrderBook::match(Order& incoming) {
     std::vector<Fill> fills;
 
-    // 1. Match incoming order against resting orders on opposite side
-    match(order, fills);
+    if (incoming.side == Side::Bid) {
+        while (incoming.quantity > 0 && !asks_.empty()) {
+            auto levelIt = asks_.begin();
+            PriceLevel& level = levelIt->second;
+            if (!pricesCross(incoming, level.price)) {
+                break;
+            }
 
-    // 2. If leftover quantity remains, insert into book as resting order
+            while (incoming.quantity > 0 && level.head != nullptr) {
+                Order* resting = level.head;
+                Quantity tradeQty = std::min(incoming.quantity, resting->quantity);
+
+                fills.push_back(Fill{
+                    .incomingId = incoming.id,
+                    .restingId = resting->id,
+                    .price = level.price,
+                    .quantity = tradeQty
+                });
+
+                incoming.quantity -= tradeQty;
+                resting->quantity -= tradeQty;
+
+                if (resting->quantity == 0) {
+                    level.unlink(resting);
+                    orderLookup_.erase(resting->id);
+                }
+            }
+
+            if (level.head == nullptr) {
+                asks_.erase(levelIt);
+            }
+        }
+    } else {
+        while (incoming.quantity > 0 && !bids_.empty()) {
+            auto levelIt = bids_.begin();
+            PriceLevel& level = levelIt->second;
+            if (!pricesCross(incoming, level.price)) {
+                break;
+            }
+
+            while (incoming.quantity > 0 && level.head != nullptr) {
+                Order* resting = level.head;
+                Quantity tradeQty = std::min(incoming.quantity, resting->quantity);
+
+                fills.push_back(Fill{
+                    .incomingId = incoming.id,
+                    .restingId = resting->id,
+                    .price = level.price,
+                    .quantity = tradeQty
+                });
+
+                incoming.quantity -= tradeQty;
+                resting->quantity -= tradeQty;
+
+                if (resting->quantity == 0) {
+                    level.unlink(resting);
+                    orderLookup_.erase(resting->id);
+                }
+            }
+
+            if (level.head == nullptr) {
+                bids_.erase(levelIt);
+            }
+        }
+    }
+
+    return fills;
+}
+
+std::vector<Fill> OrderBook::submit(Order order) {
+    std::vector<Fill> fills = match(order);
+
     if (order.quantity > 0) {
         orders_.push_back(std::move(order));
         Order* storedOrder = &orders_.back();
@@ -85,8 +94,7 @@ std::vector<Fill> OrderBook::submit(Order order) {
             auto& level = bids_[storedOrder->price];
             level.price = storedOrder->price;
             level.pushBack(storedOrder);
-        }
-        else {
+        } else {
             auto& level = asks_[storedOrder->price];
             level.price = storedOrder->price;
             level.pushBack(storedOrder);
@@ -105,12 +113,11 @@ std::vector<Fill> OrderBook::submit(Order order) {
 bool OrderBook::cancel(OrderId id) {
     auto it = orderLookup_.find(id);
     if (it == orderLookup_.end()) {
-        return false; // Fails gracefully if OrderId is not present
+        return false;
     }
 
     const OrderHandle handle = it->second;
 
-    // 1. Unlink order from its price level and cleanup empty price levels
     if (handle.side == Side::Bid) {
         auto levelIt = bids_.find(handle.price);
         if (levelIt != bids_.end()) {
@@ -119,8 +126,7 @@ bool OrderBook::cancel(OrderId id) {
                 bids_.erase(levelIt);
             }
         }
-    }
-    else {
+    } else {
         auto levelIt = asks_.find(handle.price);
         if (levelIt != asks_.end()) {
             levelIt->second.unlink(handle.order);
@@ -130,7 +136,6 @@ bool OrderBook::cancel(OrderId id) {
         }
     }
 
-    // 2. Remove handle from lookup map
     orderLookup_.erase(it);
     return true;
 }
@@ -148,3 +153,5 @@ std::optional<Price> OrderBook::bestAsk() const {
     }
     return asks_.begin()->first;
 }
+
+} // namespace lobster
