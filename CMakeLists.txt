@@ -21,6 +21,7 @@ add_executable(lobster_main
         src/core/Types.h
         src/core/Order.h
         src/core/PriceLevel.h
+        src/core/Fill.h
         src/core/OrderBook.h
         src/core/OrderBook.cpp
 )
@@ -35,6 +36,7 @@ add_executable(lobster_tests
         src/core/Types.h
         src/core/Order.h
         src/core/PriceLevel.h
+        src/core/Fill.h
         src/core/OrderBook.h
         src/core/OrderBook.cpp
 )
