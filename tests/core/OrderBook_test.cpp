@@ -1,6 +1,8 @@
 #include <catch2/catch_test_macros.hpp>
 #include "core/OrderBook.h"
 
+using namespace lobster;
+
 TEST_CASE("OrderBook - submit and bestBid/bestAsk queries", "[OrderBook]") {
     OrderBook book;
 

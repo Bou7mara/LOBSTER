@@ -3,6 +3,8 @@
 #include "core/Order.h"
 #include "core/PriceLevel.h"
 
+using namespace lobster;
+
 TEST_CASE("PriceLevel - pushBack operations", "[PriceLevel]") {
     PriceLevel level;
     level.price = 10000;
