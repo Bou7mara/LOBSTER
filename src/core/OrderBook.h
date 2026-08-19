@@ -6,6 +6,9 @@
 #include <optional>
 #include <unordered_map>
 
+#include <vector>
+
+#include "Fill.h"
 #include "Order.h"
 #include "PriceLevel.h"
 #include "Types.h"
@@ -30,12 +33,15 @@ public:
     OrderBook& operator=(OrderBook&&) = default;
 
     // Core Operations
-    void submit(Order order);
+    std::vector<Fill> submit(Order order);
     bool cancel(OrderId id);
 
     // Queries
     [[nodiscard]] std::optional<Price> bestBid() const;
     [[nodiscard]] std::optional<Price> bestAsk() const;
+
+private:
+    void match(Order& incoming, std::vector<Fill>& fills);
 
 private:
     // Memory Storage: std::deque guarantees pointer stability upon push_back/emplace_back
