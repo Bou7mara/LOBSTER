@@ -15,6 +15,9 @@ struct Order {
     Order(const Order&) = delete;
     Order& operator=(const Order&) = delete;
 
+    Order(Order&&) = default;
+    Order& operator=(Order&&) = default;
+
     Order() = default;
 };
 

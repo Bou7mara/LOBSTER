@@ -1,52 +1,50 @@
 #include <iostream>
 #include "core/Types.h"
 #include "core/Order.h"
-#include "core/PriceLevel.h"
-
-void printLevel(const char* name, const PriceLevel& level) {
-    std::cout << name << " (Price: " << level.price << "):\n";
-    const Order* curr = level.head;
-    if (!curr) {
-        std::cout << "  [Empty]\n";
-        return;
-    }
-    while (curr != nullptr) {
-        std::cout << "  -> Order ID: " << curr->id
-                  << " | Owner: " << curr->owner
-                  << " | Qty: " << curr->quantity
-                  << " | Side: " << (curr->side == Side::Bid ? "BID" : "ASK")
-                  << " | SubmittedAt: " << curr->submittedAt << "\n";
-        curr = curr->next;
-    }
-}
+#include "core/OrderBook.h"
 
 int main() {
-    std::cout << "=== LOBSTER Limit Order Book - PriceLevel Demo ===\n\n";
+    std::cout << "=== LOBSTER Limit Order Book - OrderBook Demo ===\n\n";
 
-    PriceLevel bidLevel;
-    bidLevel.price = 15000;
+    OrderBook book;
 
-    Order o1; o1.id = 101; o1.owner = 1; o1.side = Side::Bid; o1.price = 15000; o1.quantity = 50; o1.submittedAt = 1000;
-    Order o2; o2.id = 102; o2.owner = 2; o2.side = Side::Bid; o2.price = 15000; o2.quantity = 30; o2.submittedAt = 1001;
-    Order o3; o3.id = 103; o3.owner = 3; o3.side = Side::Bid; o3.price = 15000; o3.quantity = 20; o3.submittedAt = 1002;
+    std::cout << "1. Submitting Bid Orders...\n";
+    Order b1; b1.id = 101; b1.owner = 1; b1.side = Side::Bid; b1.price = 15000; b1.quantity = 50; b1.submittedAt = 1000;
+    Order b2; b2.id = 102; b2.owner = 2; b2.side = Side::Bid; b2.price = 15050; b2.quantity = 30; b2.submittedAt = 1001;
 
-    std::cout << "1. Enqueuing 3 orders into Bid PriceLevel...\n";
-    bidLevel.pushBack(&o1);
-    bidLevel.pushBack(&o2);
-    bidLevel.pushBack(&o3);
-    printLevel("Bid Level", bidLevel);
+    book.submit(std::move(b1));
+    book.submit(std::move(b2));
 
-    std::cout << "\n2. Unlinking middle order (ID: 102)...\n";
-    bidLevel.unlink(&o2);
-    printLevel("Bid Level after unlinking ID 102", bidLevel);
+    if (auto bestBid = book.bestBid()) {
+        std::cout << "  Current Best Bid: " << *bestBid << "\n";
+    }
 
-    std::cout << "\n3. Unlinking head order (ID: 101)...\n";
-    bidLevel.unlink(&o1);
-    printLevel("Bid Level after unlinking ID 101", bidLevel);
+    std::cout << "\n2. Submitting Ask Orders...\n";
+    Order a1; a1.id = 201; a1.owner = 3; a1.side = Side::Ask; a1.price = 15100; a1.quantity = 25; a1.submittedAt = 1002;
+    Order a2; a2.id = 202; a2.owner = 4; a2.side = Side::Ask; a2.price = 15080; a2.quantity = 40; a2.submittedAt = 1003;
 
-    std::cout << "\n4. Unlinking remaining order (ID: 103)...\n";
-    bidLevel.unlink(&o3);
-    printLevel("Bid Level after unlinking ID 103", bidLevel);
+    book.submit(std::move(a1));
+    book.submit(std::move(a2));
+
+    if (auto bestAsk = book.bestAsk()) {
+        std::cout << "  Current Best Ask: " << *bestAsk << "\n";
+    }
+
+    std::cout << "\n3. Canceling Best Bid (ID: 102 @ 15050)...\n";
+    if (book.cancel(102)) {
+        std::cout << "  Order 102 canceled successfully.\n";
+    }
+    if (auto bestBid = book.bestBid()) {
+        std::cout << "  New Best Bid: " << *bestBid << "\n";
+    }
+
+    std::cout << "\n4. Canceling Best Ask (ID: 202 @ 15080)...\n";
+    if (book.cancel(202)) {
+        std::cout << "  Order 202 canceled successfully.\n";
+    }
+    if (auto bestAsk = book.bestAsk()) {
+        std::cout << "  New Best Ask: " << *bestAsk << "\n";
+    }
 
     std::cout << "\nDemo complete.\n";
     return 0;
